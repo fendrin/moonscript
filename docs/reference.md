@@ -1,8 +1,9 @@
-target: reference/index
-template: reference
-title: Language Guide
-short_name: lang
---
+{
+  target: "reference/index"
+  template: "reference"
+  title: "Language Guide"
+  short_name: "lang"
+}
 
 MoonScript is a programming language that compiles to
 [Lua](http://www.lua.org). This guide expects the reader to have basic
@@ -54,9 +55,9 @@ variable, or shadow an existing one.
 
 ## Update Assignment
 
-`+=`, `-=`, `/=`, `*=`, `%=`, `..=`, `or=`, `and=` operators have been added
-for updating and assigning at the same time. They are aliases for their
-expanded equivalents.
+`+=`, `-=`, `/=`, `*=`, `%=`, `..=`, `or=`, `and=`, `&=`, `|=`, `>>=`, and
+`<<=` operators have been added for updating and assigning at the same time.
+They are aliases for their expanded equivalents.
 
 ```moon
 x = 0
@@ -67,6 +68,12 @@ s ..= "world"
 
 b = false
 b and= true or false
+
+p = 50
+p &= 5
+p |= 3
+p >>= 3
+p <<= 3
 ```
 
 ## Comments
@@ -1233,7 +1240,7 @@ my_module =
 
 import \add from my_module
 
-print add 22 -- equivalent to calling my_module\get 22
+print add 22 -- equivalent to calling my_module\add 22
 ```
 
 When handing multiple imports you can substitute the comma with a newline and
@@ -1558,7 +1565,7 @@ their written order you can add `local *` to the top of your file.
 
 # License (MIT)
 
-    Copyright (C) 2015 by Leaf Corcoran
+    Copyright (C) 2017 by Leaf Corcoran
 
     Permission is hereby granted, free of charge, to any person obtaining a copy
     of this software and associated documentation files (the "Software"), to deal

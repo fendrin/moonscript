@@ -17,7 +17,7 @@ Online demo/compiler at <http://moonscript.org/compiler>.
 ## Running Tests
 
 Tests are written in MoonScript and use [Busted](http://olivinelabs.com/busted/).
-In order to run the tests you must have MoonScript installed.
+In order to run the tests you must have MoonScript and [Loadkit](https://github.com/leafo/loadkit) installed.
 
 To run tests, execute from the root directory:
 
@@ -27,9 +27,26 @@ busted
 
 Writing specs is a bit more complicated. Check out [the spec writing guide](spec/README.md).
 
+
+## Binaries
+
+Precompiled versions of MoonScript are provided for Windows. You can find them
+in the [GitHub releases page](https://github.com/leafo/moonscript/releases).
+(Scroll down to the `win32-` tags.
+
+The build code can be found in the [`binaries`
+branch](https://github.com/leafo/moonscript/tree/binaries)
+
+## Editor Support
+
+* [Vim](https://github.com/leafo/moonscript-vim)
+* [Textadept](https://github.com/leafo/moonscript-textadept)
+* [Sublime/Textmate](https://github.com/leafo/moonscript-tmbundle)
+* [Emacs](https://github.com/k2052/moonscript-mode)
+
 ## License (MIT)
 
-Copyright (C) 2015 by Leaf Corcoran
+Copyright (C) 2017 by Leaf Corcoran
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal

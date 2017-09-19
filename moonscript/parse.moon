@@ -3,11 +3,10 @@ lpeg = require "lpeg"
 
 lpeg.setmaxstack 10000 -- whoa
 
-
 err_msg = "Failed to parse:%s\n [%d] >>    %s"
 
 import Stack from require "moonscript.data"
-import trim, pos_to_line, get_line from require"moonscript.util"
+import trim, pos_to_line, get_line from require "moonscript.util"
 import unpack from require "moonscript.util"
 import wrap_env from require "moonscript.parse.env"
 
@@ -17,10 +16,9 @@ import wrap_env from require "moonscript.parse.env"
 
 {
   :White, :Break, :Stop, :Comment, :Space, :SomeSpace, :SpaceBreak, :EmptyLine,
-  :AlphaNum, :Num, :Shebang
+  :AlphaNum, :Num, :Shebang, :L
   Name: _Name
 } = require "moonscript.parse.literals"
-
 
 SpaceName = Space * _Name
 Num = Space * (Num / (v) -> {"number", v})
@@ -29,7 +27,8 @@ Num = Space * (Num / (v) -> {"number", v})
   :Indent, :Cut, :ensure, :extract_line, :mark, :pos, :flatten_or_mark,
   :is_assignable, :check_assignable, :format_assign, :format_single_assign,
   :sym, :symx, :simple_string, :wrap_func_arg, :join_chain,
-  :wrap_decorator, :check_lua_string, :self_assign
+  :wrap_decorator, :check_lua_string, :self_assign, :got
+
 } = require "moonscript.parse.util"
 
 
@@ -110,7 +109,7 @@ build_grammar = wrap_env debug_grammar, (root) ->
     File: Shebang^-1 * (Block + Ct"")
     Block: Ct(Line * (Break^1 * Line)^0)
     CheckIndent: Cmt(Indent, check_indent), -- validates line is in correct indent
-    Line: (CheckIndent * Statement + Space * #Stop)
+    Line: (CheckIndent * Statement + Space * L(Stop))
 
     Statement: pos(
         Import + While + With + For + ForEach + Switch + Return +
@@ -123,9 +122,9 @@ build_grammar = wrap_env debug_grammar, (root) ->
         CompInner / mark"comprehension"
       ) * Space)^-1 / wrap_decorator
 
-    Body: Space^-1 * Break * EmptyLine^0 * InBlock + Ct(Statement), -- either a statement, or an indented block
+    Body: Space^-1 * Break * EmptyLine^0 * InBlock + Ct(Statement) -- either a statement, or an indented block
 
-    Advance: #Cmt(Indent, advance_indent), -- Advances the indent, gives back whitespace for CheckIndent
+    Advance: L Cmt(Indent, advance_indent) -- Advances the indent, gives back whitespace for CheckIndent
     PushIndent: Cmt(Indent, push_indent)
     PreventIndent: Cmt(Cc(-1), push_indent)
     PopIndent: Cmt("", pop_indent)
@@ -152,12 +151,11 @@ build_grammar = wrap_env debug_grammar, (root) ->
 
     IfCond: Exp * Assign^-1 / format_single_assign
 
-    If: key"if" * IfCond * key"then"^-1 * Body *
-      ((Break * CheckIndent)^-1 * EmptyLine^0 * key"elseif" * pos(IfCond) * key"then"^-1 * Body / mark"elseif")^0 *
-      ((Break * CheckIndent)^-1 * EmptyLine^0 * key"else" * Body / mark"else")^-1 / mark"if"
+    IfElse: (Break * EmptyLine^0 * CheckIndent)^-1  * key"else" * Body / mark"else"
+    IfElseIf: (Break * EmptyLine^0 * CheckIndent)^-1 * key"elseif" * pos(IfCond) * key"then"^-1 * Body / mark"elseif"
 
-    Unless: key"unless" * IfCond * key"then"^-1 * Body *
-      ((Break * CheckIndent)^-1 * EmptyLine^0 * key"else" * Body / mark"else")^-1 / mark"unless"
+    If: key"if" * IfCond * key"then"^-1 * Body * IfElseIf^0 * IfElse^-1 / mark"if"
+    Unless: key"unless" * IfCond * key"then"^-1 * Body * IfElseIf^0 * IfElse^-1 / mark"unless"
 
     While: key"while" * DisableDo * ensure(Exp, PopDo) * key"do"^-1 * Body / mark"while"
 
@@ -173,15 +171,15 @@ build_grammar = wrap_env debug_grammar, (root) ->
     TblComprehension: sym"{" * Ct(Exp * (sym"," * Exp)^-1) * CompInner * sym"}" / mark"tblcomprehension"
 
     CompInner: Ct((CompForEach + CompFor) * CompClause^0)
-    CompForEach: key"for" * Ct(NameList) * key"in" * (sym"*" * Exp / mark"unpack" + Exp) / mark"foreach"
+    CompForEach: key"for" * Ct(AssignableNameList) * key"in" * (sym"*" * Exp / mark"unpack" + Exp) / mark"foreach"
     CompFor: key "for" * Name * sym"=" * Ct(Exp * sym"," * Exp * (sym"," * Exp)^-1) / mark"for"
     CompClause: CompFor + CompForEach + key"when" * Exp / mark"when"
 
     Assign: sym"=" * (Ct(With + If + Switch) + Ct(TableBlock + ExpListLow)) / mark"assign"
-    Update: ((sym"..=" + sym"+=" + sym"-=" + sym"*=" + sym"/=" + sym"%=" + sym"or=" + sym"and=") / trim) * Exp / mark"update"
+    Update: ((sym"..=" + sym"+=" + sym"-=" + sym"*=" + sym"/=" + sym"%=" + sym"or=" + sym"and=" + sym"&=" + sym"|=" + sym">>=" + sym"<<=") / trim) * Exp / mark"update"
 
-    CharOperators: Space * C(S"+-*/%^><")
-    WordOperators: op"or" + op"and" + op"<=" + op">=" + op"~=" + op"!=" + op"==" + op".."
+    CharOperators: Space * C(S"+-*/%^><|&")
+    WordOperators: op"or" + op"and" + op"<=" + op">=" + op"~=" + op"!=" + op"==" + op".." + op"<<" + op">>" + op"//"
     BinaryOperator: (WordOperators + CharOperators) * SpaceBreak^0
 
     Assignable: Cmt(Chain, check_assignable) + Name + SelfName
@@ -196,6 +194,7 @@ build_grammar = wrap_env debug_grammar, (root) ->
       Cmt(Do, check_do) +
       sym"-" * -SomeSpace * Exp / mark"minus" +
       sym"#" * Exp / mark"length" +
+      sym"~" * Exp / mark"bitnot" +
       key"not" * Exp / mark"not" +
       TblComprehension +
       TableLit +
@@ -212,7 +211,7 @@ build_grammar = wrap_env debug_grammar, (root) ->
       ChainValue +
       String)
 
-    SliceValue: SimpleValue + ChainValue
+    SliceValue: Exp
 
     String: Space * DoubleString + Space * SingleString + LuaString
     SingleString: simple_string("'")
@@ -228,7 +227,8 @@ build_grammar = wrap_env debug_grammar, (root) ->
     Callable: pos(Name / mark"ref") + SelfName + VarArg + Parens / mark"parens"
     Parens: sym"(" * SpaceBreak^0 * Exp * SpaceBreak^0 * sym")"
 
-    FnArgs: symx"(" * SpaceBreak^0 * Ct(ExpList^-1) * SpaceBreak^0 * sym")" + sym"!" * -P"=" * Ct""
+    FnArgs: symx"(" * SpaceBreak^0 * Ct(FnArgsExpList^-1) * SpaceBreak^0 * sym")" + sym"!" * -P"=" * Ct""
+    FnArgsExpList: Exp * ((Break + sym",") * White * Exp)^0
 
     Chain: (Callable + String + -S".\\") * ChainItems / mark"chain" +
       Space * (DotChainItem * ChainItems^-1 + ColonChain) / mark"chain"
@@ -251,7 +251,7 @@ build_grammar = wrap_env debug_grammar, (root) ->
     Invoke: FnArgs / mark"call" +
       SingleString / wrap_func_arg +
       DoubleString / wrap_func_arg +
-      #P"[" * LuaString / wrap_func_arg
+      L(P"[") * LuaString / wrap_func_arg
 
     TableValue: KeyValue + Ct(Exp)
 
@@ -282,15 +282,21 @@ build_grammar = wrap_env debug_grammar, (root) ->
       op"*" + op"^" +
       Ct(NameList) * (sym"=" * Ct(ExpListLow))^-1) / mark"export"
 
-    KeyValue: (sym":" * -SomeSpace *  Name * lpeg.Cp()) / self_assign + Ct((KeyName + sym"[" * Exp * sym"]" + DoubleString + SingleString) * symx":" * (Exp + TableBlock + SpaceBreak^1 * Exp))
+    KeyValue: (sym":" * -SomeSpace *  Name * lpeg.Cp!) / self_assign +
+      Ct(
+        (KeyName + sym"[" * Exp * sym"]" +Space * DoubleString + Space * SingleString) *
+        symx":" *
+        (Exp + TableBlock + SpaceBreak^1 * Exp)
+      )
+
     KeyValueList: KeyValue * (sym"," * KeyValue)^0
     KeyValueLine: CheckIndent * KeyValueList * sym","^-1
 
-    FnArgsDef: sym"(" * Ct(FnArgDefList^-1) *
+    FnArgsDef: sym"(" * White * Ct(FnArgDefList^-1) *
       (key"using" * Ct(NameList + Space * "nil") + Ct"") *
-      sym")" + Ct"" * Ct""
+      White * sym")" + Ct"" * Ct""
 
-    FnArgDefList: FnArgDef * (sym"," * FnArgDef)^0 * (sym"," * Ct(VarArg))^0 + Ct(VarArg)
+    FnArgDefList: FnArgDef * ((sym"," + Break) * White * FnArgDef)^0 * ((sym"," + Break) * White * Ct(VarArg))^0 + Ct(VarArg)
     FnArgDef: Ct((Name + SelfName) * (sym"=" * Exp)^-1)
 
     FunLit: FnArgsDef *

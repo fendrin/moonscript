@@ -9,7 +9,7 @@ describe "moonc", ->
   dev_loaded = with_dev ->
     moonc = require "moonscript.cmd.moonc"
 
-  same = (fn, a, b)->
+  same = (fn, a, b) ->
     assert.same b, fn a
 
   it "should normalize dir", ->
@@ -17,7 +17,6 @@ describe "moonc", ->
     same moonc.normalize_dir, "hello/world//", "hello/world/"
     same moonc.normalize_dir, "", "/" -- wrong
     same moonc.normalize_dir, "hello", "hello/"
-
 
   it "should parse dir", ->
     same moonc.parse_dir, "/hello/world/file", "/hello/world/"
@@ -62,6 +61,44 @@ describe "moonc", ->
     }, {
       moonc.compile_file_text "print'hello'", fname: "test.moon"
     }
+
+  describe "watcher", ->
+    describe "inotify watcher", ->
+      it "gets dirs", ->
+        import InotifyWacher from require "moonscript.cmd.watchers"
+        watcher = InotifyWacher {
+          {"hello.moon", "hello.lua"}
+          {"cool/no.moon", "cool/no.lua"}
+        }
+
+        assert.same {
+          "./"
+          "cool/"
+        }, watcher\get_dirs!
+
+  describe "parse args", ->
+    it "parses spec", ->
+      import parse_spec from require "moonscript.cmd.args"
+      spec = parse_spec "lt:o:X"
+      assert.same {
+        X: {}
+        o: {value: true}
+        t: {value: true}
+        l: {}
+      }, spec
+
+    it "parses arguments", ->
+      import parse_arguments from require "moonscript.cmd.args"
+      out, res = parse_arguments {
+        "ga:p"
+        print: "p"
+      }, {"hello", "word", "-gap"}
+
+      assert.same {
+        g: true
+        a: true
+        p: true
+      }, out
 
   describe "stubbed lfs", ->
     local dirs

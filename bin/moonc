@@ -9,9 +9,7 @@ local opts, ind = alt_getopt.get_opts(arg, "lvhwt:o:pTXb", {
 
 local read_stdin = arg[1] == "--"
 
-local polling_rate = 1.0
-
-local help = [[Usage: %s [options] files...
+local help = [[Usage: %s [options] files/directories...
 
     -h          Print this message
     -w          Watch file/directory
@@ -72,9 +70,7 @@ local function scan_directory(root, collected)
 
 			if lfs.attributes(full_path, "mode") == "directory" then
 				scan_directory(full_path, collected)
-			end
-
-			if fname:match("%.moon$") then
+			elseif fname:match("%.moon$") then
 				table.insert(collected, full_path)
 			end
 		end
@@ -163,108 +159,27 @@ if opts.o and #files > 1 then
 	print_help("-o can not be used with multiple input files")
 end
 
-local function get_sleep_func()
-	local sleep
-	if not pcall(function()
-		local socket = require "socket"
-		sleep = socket.sleep
-	end) then
-		-- This is set by moonc.c in windows binaries
-		sleep = require("moonscript")._sleep
-	end
-	if not sleep then
-		error("Missing sleep function; install LuaSocket")
-	end
-	return sleep
-end
-
-local function plural(count, word)
-	if count ~= 1 then
-		word = word .. "s"
-	end
-	return table.concat({count, word}, " ")
-end
-
 -- returns an iterator that returns files that have been updated
 local function create_watcher(files)
-	local msg = "Starting watch loop (Ctrl-C to exit)"
+	local watchers = require("moonscript.cmd.watchers")
 
-	local inotify
-	pcall(function()
-		inotify = require "inotify"
-	end)
-
-	if inotify then
-		local dirs = {}
-
-		for _, tuple in ipairs(files) do
-			local dir = parse_dir(tuple[1])
-			if dir == "" then
-				dir = "./"
-			end
-			table.insert(dirs, dir)
-		end
-
-		dirs = remove_dups(dirs)
-
-		return coroutine.wrap(function()
-			io.stderr:write(("%s with inotify [%s]"):format(msg, plural(#dirs, "dir")) .. "\n")
-
-			local wd_table = {}
-			local handle = inotify.init()
-			for _, dir in ipairs(dirs) do
-				local wd = handle:addwatch(dir, inotify.IN_CLOSE_WRITE, inotify.IN_MOVED_TO)
-				wd_table[wd] = dir
-			end
-
-			while true do
-				local events = handle:read()
-				if not events then
-					break
-				end
-
-				for _, ev in ipairs(events) do
-					local fname = ev.name
-					if fname:match("%.moon$") then
-						local dir = wd_table[ev.wd]
-						if dir ~= "./" then
-							fname = dir .. fname
-						end
-						-- TODO: check to make sure the file was in the original set
-						coroutine.yield(fname)
-					end
-				end
-			end
-		end)
-	else
-		-- poll the filesystem instead
-		local sleep = get_sleep_func()
-		return coroutine.wrap(function()
-			io.stderr:write(("%s with polling [%s]"):format(msg, plural(#files, "file")) .. "\n")
-
-			local mod_time = {}
-			while true do
-				for _, tuple in ipairs(files) do
-					local file = tuple[1]
-					local time = lfs.attributes(file, "modification")
-					if not mod_time[file] then
-						mod_time[file] = time
-					else
-						if time ~= mod_time[file] then
-							if time > mod_time[file] then
-								coroutine.yield(file)
-								mod_time[file] = time
-							end
-						end
-					end
-				end
-				sleep(polling_rate)
-			end
-		end)
+	if watchers.InotifyWacher:available() then
+		return watchers.InotifyWacher(files):each_update()
 	end
+
+	return watchers.SleepWatcher(files):each_update()
 end
 
 if opts.w then
+	-- build function to check for lint or compile in watch
+	local handle_file
+	if opts.l then
+		local lint = require "moonscript.cmd.lint"
+		handle_file = lint.lint_file
+	else
+		handle_file = compile_and_write
+	end
+
 	local watcher = create_watcher(files)
 	-- catches interrupt error for ctl-c
 	local protected = function()
@@ -283,8 +198,14 @@ if opts.w then
 			target = opts.o
 		end
 
-		local success, err = compile_and_write(fname, target)
-		if not success then
+		local success, err = handle_file(fname, target)
+		if opts.l then
+			if success then
+				io.stderr:write(success .. "\n\n")
+			elseif err then
+				io.stderr:write(fname .. "\n" .. err .. "\n\n")
+			end
+		elseif not success then
 			io.stderr:write(table.concat({
 				"",
 				"Error: " .. fname,
@@ -298,15 +219,21 @@ if opts.w then
 
 	io.stderr:write("\nQuitting...\n")
 elseif opts.l then
+	local has_linted_with_error;
+	local lint = require "moonscript.cmd.lint"
 	for _, tuple in pairs(files) do
 		local fname = tuple[1]
-		local lint = require "moonscript.cmd.lint"
 		local res, err = lint.lint_file(fname)
 		if res then
+			has_linted_with_error = true
 			io.stderr:write(res .. "\n\n")
 		elseif err then
+			has_linted_with_error = true
 			io.stderr:write(fname .. "\n" .. err.. "\n\n")
 		end
+	end
+	if has_linted_with_error then
+		os.exit(1)
 	end
 else
 	for _, tuple in ipairs(files) do

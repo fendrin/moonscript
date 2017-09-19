@@ -108,8 +108,103 @@ k(function()
     return 
   end
 end)
-return function()
+_ = function()
   if something then
     return real_name
   end
 end
+d(function()
+  return print("hello world")
+end, 10)
+d(1, 2, 3, 4, 5, 6, (function()
+  if something then
+    print("okay")
+    return 10
+  end
+end)(), 10, 20)
+f()()(what)(function()
+  return print("srue")
+end, 123)
+x = function(a, b)
+  return print("what")
+end
+local y
+y = function(a, b)
+  if a == nil then
+    a = "hi"
+  end
+  if b == nil then
+    b = 23
+  end
+  return print("what")
+end
+local z
+z = function(a, b)
+  if a == nil then
+    a = "hi"
+  end
+  if b == nil then
+    b = 23
+  end
+  return print("what")
+end
+local j
+j = function(f, g, m, a, b)
+  if a == nil then
+    a = "hi"
+  end
+  if b == nil then
+    b = 23
+  end
+  return print("what")
+end
+y = function(a, b, ...)
+  if a == nil then
+    a = "hi"
+  end
+  if b == nil then
+    b = 23
+  end
+  return print("what")
+end
+y = function(a, b, ...)
+  if a == nil then
+    a = "hi"
+  end
+  if b == nil then
+    b = 23
+  end
+  return print("what")
+end
+local args
+args = function(a, b)
+  return print("what")
+end
+args = function(a, b)
+  if a == nil then
+    a = "hi"
+  end
+  if b == nil then
+    b = 23
+  end
+  return print("what")
+end
+args = function(a, b)
+  if a == nil then
+    a = "hi"
+  end
+  if b == nil then
+    b = 23
+  end
+  return print("what")
+end
+args = function(f, g, m, a, b)
+  if a == nil then
+    a = "hi"
+  end
+  if b == nil then
+    b = 23
+  end
+  return print("what")
+end
+return nil

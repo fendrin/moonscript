@@ -1,8 +1,9 @@
-target: reference/api
-template: reference
-title: Compiler API
-short_name: api
---
+{
+  target: "reference/api"
+  template: "reference"
+  title: "Compiler API"
+  short_name: "api"
+}
 
 # MoonScript Compiler API
 
@@ -97,7 +98,7 @@ is a character offset from the original MoonScript source.
 
 ## Programmatically Compiling
 
-If you need finder grained control over the compilation process you can use the
+If you need finer grained control over the compilation process you can use the
 raw parse and compile modules.
 
 Parsing converts a string of MoonScript into an abstract syntax tree. Compiling

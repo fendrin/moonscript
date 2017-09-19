@@ -1,6 +1,6 @@
 import Transformer from require "moonscript.transform.transformer"
 
-import NameProxy from require "moonscript.transform.names"
+import NameProxy, LocalName, is_name_proxy from require "moonscript.transform.names"
 
 import Run, transform_last_stm, implicitly_return, last_stm
   from require "moonscript.transform.statements"
@@ -122,7 +122,12 @@ Transformer {
 
     if node[2] == "^"
       names = for name in *names
-        continue unless name[2]\match "^%u"
+        str_name = if ntype(name) == "ref"
+          name[2]
+        else
+          name
+
+        continue unless str_name\match "^%u"
         name
 
     {"declare", names}
@@ -222,14 +227,14 @@ Transformer {
       nil
 
   update: (node) =>
-    _, name, op, exp = unpack node
+    name, op, exp = unpack node, 2
     op_final = op\match "^(.+)=$"
     error "Unknown op: "..op if not op_final
     exp = {"parens", exp} unless value_is_singular exp
     build.assign_one name, {"exp", name, op_final, exp}
 
   import: (node) =>
-    _, names, source = unpack node
+    names, source = unpack node, 2
     table_values = for name in *names
       dest_name = if ntype(name) == "colon"
         name[2]
@@ -242,7 +247,7 @@ Transformer {
     { "assign", {dest}, {source}, [-1]: node[-1] }
 
   comprehension: (node, action) =>
-    _, exp, clauses = unpack node
+    exp, clauses = unpack node, 2
 
     action = action or (exp) -> {exp}
     construct_comprehension action(exp), clauses
@@ -275,12 +280,24 @@ Transformer {
     wrapped
 
   unless: (node) =>
-    { "if", {"not", {"parens", node[2]}}, unpack node, 3 }
+    clause = node[2]
+
+    if ntype(clause) == "assign"
+      if destructure.has_destructure clause[2]
+        error "destructure not allowed in unless assignment"
+
+      build.do {
+        clause
+        { "if", {"not", clause[2][1]}, unpack node, 3 }
+      }
+
+    else
+      { "if", {"not", {"parens", clause}}, unpack node, 3 }
 
   if: (node, ret) =>
     -- expand assign in cond
     if ntype(node[2]) == "assign"
-      _, assign, body = unpack node
+      assign, body = unpack node, 2
       if destructure.has_destructure assign[2]
         name = NameProxy "des"
 
@@ -295,7 +312,7 @@ Transformer {
         }
       else
         name = assign[2][1]
-        return build["do"] {
+        return build.do {
           assign
           {"if", name, unpack node, 3}
         }
@@ -400,6 +417,8 @@ Transformer {
       else
         {1, {"length", list_name}}
 
+      names = [is_name_proxy(n) and n or LocalName(n) or n for n in *node.names]
+
       return build.group {
         list_name != list and build.assign_one(list_name, list) or NOOP
         slice_var or NOOP
@@ -407,7 +426,7 @@ Transformer {
           name: index_name
           bounds: bounds
           body: {
-            {"assign", node.names, { NameProxy.index list_name, index_name }}
+            {"assign", names, { NameProxy.index list_name, index_name }}
             build.group node.body
           }
         }
@@ -424,7 +443,7 @@ Transformer {
     node.body = with_continue_listener node.body
 
   switch: (node, ret) =>
-    _, exp, conds = unpack node
+    exp, conds = unpack node, 2
     exp_name = NameProxy "exp"
 
     -- convert switch conds into if statment conds

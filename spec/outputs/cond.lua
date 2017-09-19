@@ -246,8 +246,34 @@ if not (value) then
     3
   }
 end
+do
+  local j = 100
+  do
+    j = hi()
+    if not j then
+      error("not j!")
+    end
+  end
+end
 local a = 12
 local c, b
 if something then
   a, c, b = "cool"
 end
+local j
+if 1 then
+  if 2 then
+    j = 3
+  end
+else
+  j = 6
+end
+local m
+if 1 then
+  if 2 then
+    m = 3
+  end
+else
+  m = 6
+end
+return nil

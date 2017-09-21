@@ -37,7 +37,7 @@ merge_postfix = function(a, b)
   end
   return a
 end
-local merge = infix(merge_postfix)
+local _merge_ = infix(merge_postfix)
 local scenario
 scenario = function(cfg)
   return moon.p(cfg)
@@ -63,21 +63,21 @@ return scenario({
     side = 1,
     controller = "human"
   }
-  } -merge- {
+  } -_merge_- {
     side = {
       side2 = 2,
       controller = "player"
     }
-  } -merge- {
+  } -_merge_- {
   side = {
     side = 3,
     controller = "ai"
   }
-  } -merge- {
+  } -_merge_- {
     side = {
       side = 4,
       controller = "human"
     }
-  } -merge- {
-  } -merge- SIDE() -merge- {
+  } -_merge_- {
+  } -_merge_- SIDE() -_merge_- {
 })

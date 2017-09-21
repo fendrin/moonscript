@@ -253,7 +253,8 @@ build_grammar = wrap_env debug_grammar, (root) ->
       DoubleString / wrap_func_arg +
       L(P"[") * LuaString / wrap_func_arg
 
-    TableValue: KeyValue + Ct(Exp)
+    TableValue: KeyValue + Ct(Exp) + Ct(TableInsert)
+    TableInsert: sym"<" * (Exp + TableBlock + SpaceBreak^1 * Exp) / mark"tableInsert"
 
     TableLit: sym"{" * Ct(
         TableValueList^-1 * sym","^-1 *

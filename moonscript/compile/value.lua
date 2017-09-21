@@ -264,12 +264,27 @@ return {
           return self:line(_with_0:value(tuple[1]))
         end
       end
+      local format_table
+      format_table = function(list)
+        local count = #list
+        for i, tuple in ipairs(list) do
+          local line = format_line(tuple)
+          if not (count == i or ntype(tuple[1]) == "tableInsert") then
+            line:append(table_delim)
+          end
+          _with_0:add(line)
+        end
+      end
       if items then
         local map, list = { }, { }
         for i, tuple in ipairs(items) do
           local _continue_0 = false
           repeat
             if (#tuple ~= 2) or (ntype(tuple[1]) ~= "key_literal") then
+              if (ntype(tuple[1]) == "tableInsert") then
+                format_table(list)
+                map, list = { }, { }
+              end
               table.insert(list, tuple)
               _continue_0 = true
               break
@@ -308,17 +323,13 @@ return {
             break
           end
         end
-        local count = #list
-        for i, tuple in ipairs(list) do
-          local line = format_line(tuple)
-          if not (count == i) then
-            line:append(table_delim)
-          end
-          _with_0:add(line)
-        end
+        format_table(list)
       end
       return _with_0
     end
+  end,
+  tableInsert = function(self, node)
+    return self:line("} -_merge_- ", (self:value(node[2])), " -_merge_- {")
   end,
   minus = function(self, node)
     return self:line("-", self:value(node[2]))

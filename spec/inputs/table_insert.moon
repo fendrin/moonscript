@@ -20,7 +20,7 @@ merge_postfix = (a, b) ->
             a[key] = value
     return a
 
-merge = infix(merge_postfix)
+_merge_ = infix(merge_postfix)
 
 scenario = (cfg) ->
     moon.p(cfg)

@@ -157,10 +157,21 @@ string_chars = {
         else
           @line \value tuple[1]
 
+      format_table = (list) ->
+        count = #list
+        for i, tuple in ipairs list
+          line = format_line tuple
+          unless count == i or ntype(tuple[1]) == "tableInsert"
+            line\append table_delim
+          \add line
+
       if items
         map, list = {}, {}
         for i, tuple in ipairs items
           if (#tuple != 2) or (ntype(tuple[1]) != "key_literal")
+            if (ntype(tuple[1]) == "tableInsert")
+              format_table(list)
+              map, list = {}, {}
             table.insert(list, tuple)
             continue
           key_node, value = unpack tuple
@@ -175,11 +186,10 @@ string_chars = {
           else
             list[key] = #list + 1
             table.insert(list, tuple)
-        count = #list
-        for i, tuple in ipairs list
-          line = format_line tuple
-          line\append table_delim unless count == i
-          \add line
+        format_table(list)
+
+  tableInsert: (node) =>
+    @line "} -_merge_- ", (@value node[2]), " -_merge_- {"
 
   minus: (node) =>
     @line "-", @value node[2]

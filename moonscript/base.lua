@@ -14,7 +14,7 @@ local lua = {
   loadstring = loadstring,
   load = load
 }
-local dirsep, line_tables, create_moonpath, to_lua, moon_loader, loadstring, loadfile, dofile, insert_loader, remove_loader
+local dirsep, line_tables, create_moonpath, to_lua, moon_loader, moon_love_loader, loadstring, loadfile, dofile, insert_loader, insert_love_loader, remove_loader
 dirsep = "/"
 line_tables = require("moonscript.line_tables")
 create_moonpath = function(package_path)
@@ -84,6 +84,25 @@ moon_loader = function(name)
   end
   return nil, "Could not find moon file"
 end
+moon_love_loader = function(name)
+  local name_path = name:gsub("%.", dirsep)
+  local file, file_path
+  for path in package.love_moonpath:gmatch("[^;]+") do
+    file_path = path:gsub("?", name_path)
+    file = love.filesystem.read(file_path)
+    if file then
+      break
+    end
+  end
+  if file then
+    local res, err = loadstring(file, "@" .. tostring(file_path))
+    if not res then
+      error(file_path .. ": " .. err)
+    end
+    return res
+  end
+  return nil, "Could not find moon file"
+end
 loadstring = function(...)
   local options, str, chunk_name, mode, env = get_options(...)
   chunk_name = chunk_name or "=(moonscript.loadstring)"
@@ -129,10 +148,27 @@ insert_loader = function(pos)
   insert(loaders, pos, moon_loader)
   return true
 end
+insert_love_loader = function(pos)
+  if pos == nil then
+    pos = 4
+  end
+  if not package.love_moonpath then
+    package.love_moonpath = create_moonpath(love.filesystem.getRequirePath())
+  end
+  local loaders = package.loaders or package.searchers
+  for _index_0 = 1, #loaders do
+    local loader = loaders[_index_0]
+    if loader == moon_love_loader then
+      return false
+    end
+  end
+  insert(loaders, pos, moon_love_loader)
+  return true
+end
 remove_loader = function()
   local loaders = package.loaders or package.searchers
   for i, loader in ipairs(loaders) do
-    if loader == moon_loader then
+    if loader == moon_loader or loader == moon_love_loader then
       remove(loaders, i)
       return true
     end
@@ -142,10 +178,12 @@ end
 return {
   _NAME = "moonscript",
   insert_loader = insert_loader,
+  insert_love_loader = insert_love_loader,
   remove_loader = remove_loader,
   to_lua = to_lua,
   moon_loader = moon_loader,
   dirsep = dirsep,
+  moon_love_loader = moon_love_loader,
   dofile = dofile,
   loadfile = loadfile,
   loadstring = loadstring,

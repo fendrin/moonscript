@@ -54,6 +54,24 @@ moon_loader = (name) ->
 
   return nil, "Could not find moon file"
 
+moon_love_loader = (name) ->
+  name_path = name\gsub "%.", dirsep
+
+  local file, file_path
+  for path in package.love_moonpath\gmatch "[^;]+"
+    file_path = path\gsub "?", name_path
+    file = love.filesystem.read file_path
+    break if file
+
+  if file
+    res, err = loadstring file, "@#{file_path}"
+    if not res
+        error file_path .. ": " .. err
+
+    return res
+
+  return nil, "Could not find moon file"
+
 
 loadstring = (...) ->
   options, str, chunk_name, mode, env = get_options ...
@@ -90,11 +108,22 @@ insert_loader = (pos=2) ->
   insert loaders, pos, moon_loader
   true
 
+insert_love_loader = (pos=4) ->
+  if not package.love_moonpath
+    package.love_moonpath = create_moonpath(love.filesystem.getRequirePath!)
+
+  loaders = package.loaders or package.searchers
+  for loader in *loaders
+    return false if loader == moon_love_loader
+
+  insert loaders, pos, moon_love_loader
+  true
+
 remove_loader = ->
   loaders = package.loaders or package.searchers
 
   for i, loader in ipairs loaders
-    if loader == moon_loader
+    if loader == moon_loader or loader == moon_love_loader
       remove loaders, i
       return true
 
@@ -102,7 +131,7 @@ remove_loader = ->
 
 {
   _NAME: "moonscript"
-  :insert_loader, :remove_loader, :to_lua, :moon_loader, :dirsep,
-  :dofile, :loadfile, :loadstring, :create_moonpath
+  :insert_loader, :insert_love_loader, :remove_loader, :to_lua, :moon_loader, :dirsep,
+  :moon_love_loader, :dofile, :loadfile, :loadstring, :create_moonpath
 }
 
